@@ -1,0 +1,26 @@
+cabal-version:      3.0
+name:               haskellaula
+version:            0.1.0.0
+-- synopsis:
+-- description:
+license:            BSD-3-Clause
+license-file:       LICENSE
+author:             Eu
+maintainer:         joaov.castro95@gmail.com
+-- copyright:
+category:           Web
+build-type:         Simple
+extra-doc-files:    CHANGELOG.md
+-- extra-source-files:
+
+common warnings
+    ghc-options: -Wall
+
+executable haskellaula
+    import:           warnings
+    main-is:          Main.hs
+    -- other-modules:
+    -- other-extensions:
+    build-depends:    base, servant, servant-server, warp
+    hs-source-dirs:   app
+    default-language: Haskell2010
