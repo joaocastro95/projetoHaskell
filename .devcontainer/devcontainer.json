@@ -5,7 +5,7 @@
   "build": { "dockerfile": "Dockerfile" },
 
   // Na criação do Codespace: baixa e compila as dependências (demora uns 10-15 min na 1ª vez).
-  "postCreateCommand": "cabal update && cabal build && cd frontend && npm install",
+  "postCreateCommand": "cabal update && cabal build && npm install",
 
   "forwardPorts": [8080, 8081],
   "portsAttributes": {

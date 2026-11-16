@@ -1,0 +1,14 @@
+{
+  "name": "perdazero-haskell",
+  "private": true,
+  "description": "Sobe a API Haskell (porta 8081) e o site Next.js (porta 8080) com um comando só.",
+  "scripts": {
+    "postinstall": "cd frontend && npm install",
+    "dev": "concurrently --kill-others --names api,site --prefix-colors blue,green \"cabal run\" \"cd frontend && npm run dev\"",
+    "api": "cabal run",
+    "site": "cd frontend && npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "9.2.5"
+  }
+}

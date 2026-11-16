@@ -10,20 +10,23 @@ Tudo roda no computador (localhost).
 
 ## Como rodar
 
-São dois terminais:
+Na pasta do projeto (a primeira vez demora, porque compila as dependências do Haskell):
 
 ```bash
-# 1) API Haskell em http://localhost:8081
 cabal update
-cabal run
-```
-
-```bash
-# 2) Site em http://localhost:8080
-cd frontend
 npm install
 npm run dev
 ```
+
+O `npm install` instala também as dependências do site (`frontend/`). O `npm run dev` sobe os dois
+programas no mesmo terminal, com o pacote `concurrently`: a **API Haskell** (porta 8081, linhas `[api]`)
+e o **site Next.js** (porta 8080, linhas `[site]`). `Ctrl+C` para os dois.
+
+Por que dois programas? A API é um executável Haskell e o site é um servidor Node.js, e cada porta
+só pode ser usada por um programa. Mas você só abre a **8080**: o servidor do Next chama a API na
+8081 por dentro da máquina.
+
+Para subir só um deles: `npm run api` ou `npm run site`.
 
 Abra **http://localhost:8080**, clique em **Criar conta grátis** e, para ver tudo preenchido,
 vá em **Conta → Carregar dados de demonstração**.
@@ -42,10 +45,8 @@ O repositório tem um `.devcontainer/` com GHC 9.10, cabal e Node 20.
 1. No GitHub: **Code → Codespaces → Create codespace on main**.
 2. Espere a preparação: ela já roda `cabal update`, `cabal build` e `npm install`
    (na primeira vez leva uns 10-15 minutos).
-3. Abra dois terminais (**+** no painel de terminal):
-   - `cabal run` (API na porta 8081)
-   - `cd frontend && npm run dev` (site na porta 8080)
-4. Na aba **Ports**, clique no globo da porta **8080** para abrir o site.
+3. No terminal, rode `npm run dev` (sobe a API e o site juntos).
+4. Na aba **Portas**, clique no globo da porta **8080** para abrir o site.
 
 O banco começa vazio no Codespace (o `perdazero.db` não vai para o Git): crie uma conta e use
 **Conta → Carregar dados de demonstração**.
