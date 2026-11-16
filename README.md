@@ -13,22 +13,22 @@ Tudo roda no computador (localhost).
 São dois terminais:
 
 ```bash
-# 1) API Haskell em http://localhost:8080
+# 1) API Haskell em http://localhost:8081
 cabal update
 cabal run
 ```
 
 ```bash
-# 2) Telas em http://localhost:3000
+# 2) Site em http://localhost:8080
 cd frontend
 npm install
 npm run dev
 ```
 
-Abra **http://localhost:3000**, clique em **Criar conta grátis** e, para ver tudo preenchido,
+Abra **http://localhost:8080**, clique em **Criar conta grátis** e, para ver tudo preenchido,
 vá em **Conta → Carregar dados de demonstração**.
 
-O front encontra a API pela variável `API_URL` (padrão `http://localhost:8080`, veja `frontend/.env.example`).
+O front encontra a API pela variável `API_URL` (padrão `http://localhost:8081`, veja `frontend/.env.example`).
 As chamadas saem do servidor do Next para a API, então não há CORS e o token de login fica num
 cookie httpOnly, fora do JavaScript do navegador.
 
@@ -87,24 +87,24 @@ Erros voltam com status 400/401/404/409 e o corpo `{"erro": "mensagem"}`.
 
 ```bash
 # Criar conta (copie o token da resposta)
-curl -X POST localhost:8080/cadastro -H "Content-Type: application/json" \
+curl -X POST localhost:8081/cadastro -H "Content-Type: application/json" \
   -d '{"email":"eu@exemplo.com","senha":"segredo1","restaurante":"Cantina"}'
 
 TOKEN=cole-o-token-aqui
 
 # Cadastrar um lote
-curl -X POST localhost:8080/lote -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+curl -X POST localhost:8081/lote -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
   -d '{"produto":"Peito de frango","codigo":null,"unidade":"kg","quantidade":5,"custoTotal":90,"validade":"2026-11-20","recebidoEm":null}'
 
 # Listar
-curl -H "Authorization: Bearer $TOKEN" localhost:8080/lotes
+curl -H "Authorization: Bearer $TOKEN" localhost:8081/lotes
 
 # Descartar 2 kg estragados do lote 1
-curl -X POST localhost:8080/lote/1/movimentacao -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+curl -X POST localhost:8081/lote/1/movimentacao -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
   -d '{"tipo":"descarte","motivo":"estragado","destino":null,"quantidade":2}'
 
 # Relatório do mês
-curl -H "Authorization: Bearer $TOKEN" "localhost:8080/relatorio?mes=2026-11"
+curl -H "Authorization: Bearer $TOKEN" "localhost:8081/relatorio?mes=2026-11"
 ```
 
 ## Regras de negócio (app/Regras.hs)

@@ -1,11 +1,11 @@
 # PerdaZero — telas (Next.js + TypeScript)
 
-Front-end do PerdaZero. Os dados vêm da API Haskell da pasta acima (`cabal run`, porta 8080),
+Front-end do PerdaZero. Os dados vêm da API Haskell da pasta acima (`cabal run`, porta 8081),
 que guarda tudo no banco SQLite local. Não usa Supabase nem serviço externo.
 
 ```bash
 npm install
-npm run dev   # http://localhost:3000
+npm run dev   # http://localhost:8080
 ```
 
 `src/lib/api.ts` é o único ponto que conversa com a API (via `fetch`, no servidor do Next).

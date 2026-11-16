@@ -5,10 +5,10 @@ import type { Lote } from "./format";
 
 /**
  * Cliente da API Haskell (Servant). Roda só no servidor do Next: as chamadas vão de
- * localhost:3000 para localhost:8080, então não há CORS e o token nunca aparece no JavaScript
+ * localhost:8080 (site) para localhost:8081 (API), então não há CORS e o token nunca aparece no JavaScript
  * do navegador (fica num cookie httpOnly).
  */
-const API = process.env.API_URL ?? "http://localhost:8080";
+const API = process.env.API_URL ?? "http://localhost:8081";
 export const COOKIE_TOKEN = "pz_token";
 
 export class ErroApi extends Error {

@@ -4,8 +4,8 @@
 
 -- back-end: Servant
 -- PerdaZero: controle de validade e desperdício para pequenos restaurantes.
--- Para rodar:  cabal run  (API em http://localhost:8080) e, em outro terminal,
---               cd frontend && npm run dev  (telas em http://localhost:3000)
+-- Para rodar:  cabal run  (API em http://localhost:8081) e, em outro terminal,
+--               cd frontend && npm run dev  (site em http://localhost:8080)
 module Main where
 
 import Auth
@@ -77,7 +77,7 @@ type Protegida =
     -- POST /demo : troca os dados pelos de demonstração
     :<|> "demo" :> Token :> ReqBody '[JSON] Demo :> PostNoContent
 
--- | A API inteira. O front (Next.js, pasta frontend/) roda à parte em localhost:3000.
+-- | A API inteira. O front (Next.js, pasta frontend/) roda à parte em localhost:8080.
 type API = Publica :<|> Protegida
 
 -- | Data de hoje no fuso do computador.
@@ -289,5 +289,5 @@ main :: IO ()
 main = do
   conn <- abrirBanco "perdazero.db"
   banco <- newMVar conn
-  putStrLn "PerdaZero rodando em http://localhost:8080"
-  run 8080 (app banco)
+  putStrLn "API do PerdaZero em http://localhost:8081 (o site fica em http://localhost:8080)"
+  run 8081 (app banco)
