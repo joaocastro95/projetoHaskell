@@ -8,6 +8,7 @@ module Tipos where
 import Data.Aeson
 import Data.Char (toLower)
 import Data.Text (Text)
+import Data.Map.Strict (Map)
 import Data.Time (Day)
 import GHC.Generics (Generic)
 
@@ -30,7 +31,8 @@ data Lote = Lote
     ltValidade :: Day,
     ltRecebidoEm :: Day,
     ltDiasParaVencer :: Int,
-    ltNivel :: Text -- "vencido" | "hoje" | "3dias" | "7dias" | "ok"
+    ltNivel :: Text, -- "vencido" | "hoje" | "3dias" | "7dias" | "ok"
+    ltMovimentacoes :: Int -- quantos usos/descartes o lote já teve
   }
   deriving (Show, Generic)
 
@@ -144,3 +146,109 @@ data Usuario = Usuario
   deriving (Show, Generic)
 
 instance ToJSON Usuario where toJSON = genericToJSON (opcoes 2)
+
+-- ---------------------------------------------------------------- resumo / indicadores
+
+-- | Totais de um mês ("AAAA-MM"): perda por motivo, uso e valor salvo por destino.
+data TotaisMes = TotaisMes
+  { tmMes :: Text,
+    tmPerda :: Double,
+    tmUsado :: Double, -- todo uso (inclui uso normal)
+    tmSalvo :: Double, -- prato do dia + promoção + doação
+    tmDoado :: Double,
+    tmMotivos :: Map Text Double,
+    tmDestinos :: Map Text Double
+  }
+  deriving (Show, Generic)
+
+instance ToJSON TotaisMes where toJSON = genericToJSON (opcoes 2)
+
+-- | Uso e perda numa janela de dias (aproveitamento em 30 dias).
+data Janela = Janela {jaUsado :: Double, jaPerda :: Double}
+  deriving (Show, Generic)
+
+instance ToJSON Janela where toJSON = genericToJSON (opcoes 2)
+
+-- | Resposta do GET /resumo
+data Resumo = Resumo
+  { rsMeses :: [TotaisMes], -- últimos 6 meses, do mais antigo ao atual
+    rsUltimos30 :: Janela,
+    rsAnteriores30 :: Janela
+  }
+  deriving (Show, Generic)
+
+instance ToJSON Resumo where toJSON = genericToJSON (opcoes 2)
+
+-- | Produto já cadastrado (sugere unidade e prazo de validade na entrada)
+data ProdutoConhecido = ProdutoConhecido
+  { pcProduto :: Text,
+    pcUnidade :: Text,
+    pcCustoUnitario :: Double,
+    pcVida :: Int -- dias entre recebimento e validade na última entrada
+  }
+  deriving (Show, Generic)
+
+instance ToJSON ProdutoConhecido where toJSON = genericToJSON (opcoes 2)
+
+-- | Corpo do PATCH /lote/:id/dados (corrige nome, código e datas mesmo com histórico)
+data DadosLote = DadosLote
+  { ddProduto :: Text,
+    ddCodigo :: Maybe Text,
+    ddValidade :: Day,
+    ddRecebidoEm :: Day
+  }
+  deriving (Show, Generic)
+
+instance FromJSON DadosLote where parseJSON = genericParseJSON (opcoes 2)
+
+-- ---------------------------------------------------------------- conta
+
+newtype AtualizarPerfil = AtualizarPerfil {apRestaurante :: Text}
+  deriving (Show, Generic)
+
+instance FromJSON AtualizarPerfil where parseJSON = genericParseJSON (opcoes 2)
+
+data TrocarSenha = TrocarSenha {tsSenhaAtual :: Text, tsSenhaNova :: Text}
+  deriving (Show, Generic)
+
+instance FromJSON TrocarSenha where parseJSON = genericParseJSON (opcoes 2)
+
+-- ---------------------------------------------------------------- dados de demonstração
+
+-- | Lote gerado pelo front; "chave" liga o lote às movimentações antes de existir id no banco.
+data DemoLote = DemoLote
+  { dlChave :: Text,
+    dlProduto :: Text,
+    dlCodigo :: Maybe Text,
+    dlUnidade :: Text,
+    dlQuantidadeInicial :: Double,
+    dlQuantidade :: Double,
+    dlCustoUnitario :: Double,
+    dlValidade :: Day,
+    dlRecebidoEm :: Day
+  }
+  deriving (Show, Generic)
+
+instance FromJSON DemoLote where parseJSON = genericParseJSON (opcoes 2)
+
+data DemoMov = DemoMov
+  { dmChave :: Text,
+    dmTipo :: Text,
+    dmMotivo :: Maybe Text,
+    dmDestino :: Maybe Text,
+    dmQuantidade :: Double,
+    dmValor :: Double,
+    dmData :: Day
+  }
+  deriving (Show, Generic)
+
+instance FromJSON DemoMov where parseJSON = genericParseJSON (opcoes 2)
+
+data Demo = Demo
+  { deLotes :: [DemoLote],
+    deMovimentacoes :: [DemoMov],
+    deConfirmar :: Bool -- obrigatório se a conta já tiver dados
+  }
+  deriving (Show, Generic)
+
+instance FromJSON Demo where parseJSON = genericParseJSON (opcoes 2)

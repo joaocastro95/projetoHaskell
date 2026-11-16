@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#0d6b45"/>
+  <!-- "zero" aberto -->
+  <path d="M256 106a150 150 0 1 0 150 150" fill="none" stroke="#ffffff" stroke-width="44" stroke-linecap="round"/>
+  <!-- folha que fecha o zero: alimento salvo -->
+  <path d="M300 212C300 140 350 100 420 92c-6 74-48 120-120 120z" fill="#c6f36b"/>
+  <path d="M306 206L396 116" stroke="#0d6b45" stroke-width="10" stroke-linecap="round"/>
+</svg>

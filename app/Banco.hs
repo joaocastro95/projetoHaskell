@@ -21,6 +21,16 @@ module Banco
     contarMovimentacoes,
     registrarMovimentacao,
     movimentacoesDoMes,
+    movimentacoesPeriodo,
+    contarLotes,
+    atualizarDados,
+    produtosConhecidos,
+    -- conta
+    atualizarRestaurante,
+    senhaHashDe,
+    atualizarSenhaHash,
+    apagarDadosUsuario,
+    importarDemo,
   )
 where
 
@@ -31,13 +41,13 @@ import Database.SQLite.Simple
 import Regras (nivelAlerta)
 import Tipos
 
--- | Linha da tabela lotes, antes de calcular os dias para vencer.
-type LinhaLote = (Int, Text, Maybe Text, Text, Double, Double, Double, Day, Day)
+-- | Linha da tabela lotes (+ nº de movimentações), antes de calcular os dias para vencer.
+type LinhaLote = (Int, Text, Maybe Text, Text, Double, Double, Double, Day, Day, Int)
 
 paraLote :: Day -> LinhaLote -> Lote
-paraLote hoje (i, p, c, u, qi, q, cu, v, r) =
+paraLote hoje (i, p, c, u, qi, q, cu, v, r, n) =
   let d = fromIntegral (diffDays v hoje)
-   in Lote i p c u qi q cu v r d (nivelAlerta d)
+   in Lote i p c u qi q cu v r d (nivelAlerta d) n
 
 abrirBanco :: FilePath -> IO Connection
 abrirBanco arquivo = do
@@ -132,7 +142,8 @@ apagarSessao conn token = execute conn "DELETE FROM sessoes WHERE token = ?" (On
 
 colunasLote :: Query
 colunasLote =
-  "SELECT id, produto, codigo, unidade, quantidade_inicial, quantidade, custo_unitario, validade, recebido_em FROM lotes"
+  "SELECT id, produto, codigo, unidade, quantidade_inicial, quantidade, custo_unitario, validade, recebido_em, \
+  \(SELECT COUNT(*) FROM movimentacoes m WHERE m.lote_id = lotes.id) FROM lotes"
 
 -- | Lotes com saldo do usuário, do que vence primeiro para o último.
 listarLotes :: Connection -> Day -> Int -> IO [Lote]
@@ -208,3 +219,83 @@ movimentacoesDoMes conn uid mes =
       (uid, mes)
   where
     paraMov (i, li, p, u, t, mo, de, q, v, d) = Movimentacao i li p u t mo de q v d
+
+-- | (tipo, motivo, destino, valor, data) das movimentações do usuário entre duas datas (inclusivas).
+movimentacoesPeriodo :: Connection -> Int -> Day -> Day -> IO [(Text, Maybe Text, Maybe Text, Double, Day)]
+movimentacoesPeriodo conn uid de ate =
+  query
+    conn
+    "SELECT m.tipo, m.motivo, m.destino, m.valor, m.data FROM movimentacoes m JOIN lotes l ON l.id = m.lote_id \
+    \WHERE l.usuario_id = ? AND m.data >= ? AND m.data <= ?"
+    (uid, de, ate)
+
+-- | Quantos lotes o usuário já cadastrou (inclui os sem saldo): 0 = primeiro acesso.
+contarLotes :: Connection -> Int -> IO Int
+contarLotes conn uid = do
+  rs <- query conn "SELECT COUNT(*) FROM lotes WHERE usuario_id = ?" (Only uid)
+  pure $ case rs of
+    [Only n] -> n
+    _ -> 0
+
+-- | Corrige nome, código e datas (permitido mesmo com histórico).
+atualizarDados :: Connection -> Int -> Int -> DadosLote -> IO ()
+atualizarDados conn uid i dd =
+  execute
+    conn
+    "UPDATE lotes SET produto=?, codigo=?, validade=?, recebido_em=? WHERE id=? AND usuario_id=?"
+    (ddProduto dd, ddCodigo dd, ddValidade dd, ddRecebidoEm dd, i, uid)
+
+-- | Último cadastro de cada produto (sem repetir nomes), em ordem alfabética.
+produtosConhecidos :: Connection -> Int -> IO [ProdutoConhecido]
+produtosConhecidos conn uid = do
+  rs <-
+    query
+      conn
+      "SELECT produto, unidade, custo_unitario, validade, recebido_em FROM lotes \
+      \WHERE usuario_id = ? AND id IN (SELECT MAX(id) FROM lotes WHERE usuario_id = ? GROUP BY lower(produto)) \
+      \ORDER BY lower(produto)"
+      (uid, uid)
+  pure [ProdutoConhecido p u c (fromIntegral (diffDays v r)) | (p, u, c, v, r) <- rs]
+
+atualizarRestaurante :: Connection -> Int -> Text -> IO ()
+atualizarRestaurante conn uid r = execute conn "UPDATE usuarios SET restaurante = ? WHERE id = ?" (r, uid)
+
+senhaHashDe :: Connection -> Int -> IO (Maybe Text)
+senhaHashDe conn uid = do
+  rs <- query conn "SELECT senha_hash FROM usuarios WHERE id = ?" (Only uid)
+  pure $ case rs of
+    [Only h] -> Just h
+    _ -> Nothing
+
+atualizarSenhaHash :: Connection -> Int -> Text -> IO ()
+atualizarSenhaHash conn uid h = execute conn "UPDATE usuarios SET senha_hash = ? WHERE id = ?" (h, uid)
+
+-- | Apaga todos os lotes (e, em cascata, as movimentações) do usuário.
+apagarDadosUsuario :: Connection -> Int -> IO ()
+apagarDadosUsuario conn uid = execute conn "DELETE FROM lotes WHERE usuario_id = ?" (Only uid)
+
+-- | Troca os dados do usuário pelos de demonstração, numa transação só.
+importarDemo :: Connection -> Int -> [DemoLote] -> [DemoMov] -> IO ()
+importarDemo conn uid lotes movs = withTransaction conn $ do
+  apagarDadosUsuario conn uid
+  ids <- mapM inserir lotes
+  let porChave = zip (map dlChave lotes) ids
+  mapM_
+    ( \m -> case lookup (dmChave m) porChave of
+        Nothing -> pure ()
+        Just li ->
+          execute
+            conn
+            "INSERT INTO movimentacoes (lote_id, tipo, motivo, destino, quantidade, valor, data) VALUES (?,?,?,?,?,?,?)"
+            (li, dmTipo m, dmMotivo m, dmDestino m, dmQuantidade m, dmValor m, dmData m)
+    )
+    movs
+  where
+    inserir dl = do
+      execute
+        conn
+        "INSERT INTO lotes (usuario_id, produto, codigo, unidade, quantidade_inicial, quantidade, custo_unitario, validade, recebido_em) VALUES (?,?,?,?,?,?,?,?,?)"
+        ( (uid, dlProduto dl, dlCodigo dl, dlUnidade dl, dlQuantidadeInicial dl)
+            :. (dlQuantidade dl, dlCustoUnitario dl, dlValidade dl, dlRecebidoEm dl)
+        )
+      fromIntegral <$> lastInsertRowId conn :: IO Int

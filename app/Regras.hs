@@ -7,6 +7,7 @@ module Regras
     validarNovoLote,
     validarMovimentacao,
     montarRelatorio,
+    montarResumo,
     motivos,
     destinos,
   )
@@ -17,7 +18,7 @@ import qualified Data.Map.Strict as M
 import Data.Ord (Down (..), comparing)
 import Data.Text (Text)
 import qualified Data.Text as T
-import Data.Time (Day)
+import Data.Time (Day, addDays, addGregorianMonthsClip, fromGregorian, toGregorian)
 import Tipos
 
 motivos, destinos, unidades :: [Text]
@@ -99,3 +100,44 @@ montarRelatorio mes movs =
     somar (a, b) (c, d) = (a + c, b + d)
     ranking =
       sortBy (comparing (Down . irValor)) [ItemRanking p v n | (p, (v, n)) <- M.toList porProduto]
+
+-- | "AAAA-MM" de uma data
+mesDe :: Day -> Text
+mesDe = T.pack . take 7 . show
+
+-- | Resumo para os gráficos: últimos 6 meses (do mais antigo ao atual) e as janelas de 30 dias.
+-- Recebe as movimentações (tipo, motivo, destino, valor, data) desde o início da janela.
+montarResumo :: Day -> [(Text, Maybe Text, Maybe Text, Double, Day)] -> Resumo
+montarResumo hoje movs =
+  Resumo
+    { rsMeses = map totais meses,
+      rsUltimos30 = janela (addDays (-29) hoje) hoje,
+      rsAnteriores30 = janela (addDays (-59) hoje) (addDays (-30) hoje)
+    }
+  where
+    (a, m, _) = toGregorian hoje
+    primeiroDoMes = fromGregorian a m 1
+    meses = [mesDe (addGregorianMonthsClip k primeiroDoMes) | k <- [-5 .. 0]]
+    totais mes =
+      let ms = [x | x@(_, _, _, _, d) <- movs, mesDe d == mes]
+          valor (_, _, _, v, _) = v
+          descartes = [x | x@(t, _, _, _, _) <- ms, t == "descarte"]
+          usos = [x | x@(t, _, _, _, _) <- ms, t == "uso"]
+          porMotivo mo = sum [v | (_, Just mo', _, v, _) <- descartes, mo' == mo]
+          porDestino de = sum [v | (_, _, Just de', v, _) <- usos, de' == de]
+          salvos = ["prato_do_dia", "promocao", "doacao"]
+       in TotaisMes
+            { tmMes = mes,
+              tmPerda = sum (map valor descartes),
+              tmUsado = sum (map valor usos),
+              tmSalvo = sum (map porDestino salvos),
+              tmDoado = porDestino "doacao",
+              tmMotivos = M.fromList [(mo, porMotivo mo) | mo <- motivos],
+              tmDestinos = M.fromList [(de, porDestino de) | de <- salvos]
+            }
+    janela de ate =
+      let ms = [x | x@(_, _, _, _, d) <- movs, d >= de, d <= ate]
+       in Janela
+            { jaUsado = sum [v | ("uso", _, _, v, _) <- ms],
+              jaPerda = sum [v | ("descarte", _, _, v, _) <- ms]
+            }

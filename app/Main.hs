@@ -4,7 +4,8 @@
 
 -- back-end: Servant
 -- PerdaZero: controle de validade e desperdício para pequenos restaurantes.
--- Para rodar:  cabal run   e abra http://localhost:8080
+-- Para rodar:  cabal run  (API em http://localhost:8080) e, em outro terminal,
+--               cd frontend && npm run dev  (telas em http://localhost:3000)
 module Main where
 
 import Auth
@@ -17,7 +18,7 @@ import Data.Maybe (fromMaybe)
 import Data.Proxy
 import Data.Text (Text)
 import qualified Data.Text as T
-import Data.Time (Day, getZonedTime, localDay, zonedTimeToLocalTime)
+import Data.Time (Day, addDays, addGregorianMonthsClip, getZonedTime, localDay, zonedTimeToLocalTime)
 import Database.SQLite.Simple (Connection)
 import Network.Wai.Handler.Warp
 import Regras
@@ -59,9 +60,25 @@ type Protegida =
     :<|> "lote" :> Capture "id" Int :> "movimentacao" :> Token :> ReqBody '[JSON] NovaMovimentacao :> Post '[JSON] Lote
     -- GET /relatorio?mes=2026-11 : perdas e valor salvo do mês
     :<|> "relatorio" :> Token :> QueryParam "mes" Text :> Get '[JSON] Relatorio
+    -- GET /resumo : últimos 6 meses + aproveitamento em 30 dias (gráficos)
+    :<|> "resumo" :> Token :> Get '[JSON] Resumo
+    -- GET /lotes/contagem : quantos lotes já foram cadastrados (0 = primeiro acesso)
+    :<|> "lotes" :> "contagem" :> Token :> Get '[JSON] Int
+    -- PATCH /lote/:id/dados : corrige nome, código e datas (vale mesmo com histórico)
+    :<|> "lote" :> Capture "id" Int :> "dados" :> Token :> ReqBody '[JSON] DadosLote :> Patch '[JSON] Lote
+    -- GET /produtos : produtos já cadastrados (sugestões na entrada)
+    :<|> "produtos" :> Token :> Get '[JSON] [ProdutoConhecido]
+    -- PATCH /eu : muda o nome do restaurante
+    :<|> "eu" :> Token :> ReqBody '[JSON] AtualizarPerfil :> Patch '[JSON] Usuario
+    -- PUT /eu/senha : troca a senha (pede a atual)
+    :<|> "eu" :> "senha" :> Token :> ReqBody '[JSON] TrocarSenha :> PutNoContent
+    -- DELETE /meus-dados : apaga todos os lotes e movimentações do usuário
+    :<|> "meus-dados" :> Token :> DeleteNoContent
+    -- POST /demo : troca os dados pelos de demonstração
+    :<|> "demo" :> Token :> ReqBody '[JSON] Demo :> PostNoContent
 
--- | A API inteira + as páginas (HTML + JS) da pasta static.
-type API = Publica :<|> Protegida :<|> Raw
+-- | A API inteira. O front (Next.js, pasta frontend/) roda à parte em localhost:3000.
+type API = Publica :<|> Protegida
 
 -- | Data de hoje no fuso do computador.
 hojeLocal :: IO Day
@@ -73,7 +90,7 @@ falhar e msg =
   throwError e {errBody = encode (Erro msg), errHeaders = [("Content-Type", "application/json; charset=utf-8")]}
 
 server :: MVar Connection -> Server API
-server banco = publica :<|> protegida :<|> serveDirectoryFileServer "static"
+server banco = publica :<|> protegida
   where
     -- Um acesso ao banco por vez (o SQLite não gosta de escritas simultâneas)
     comBanco :: (Connection -> IO a) -> Handler a
@@ -131,6 +148,66 @@ server banco = publica :<|> protegida :<|> serveDirectoryFileServer "static"
         :<|> apagar
         :<|> movimentar
         :<|> relatorio
+        :<|> resumo
+        :<|> contagem
+        :<|> mudarDados
+        :<|> produtos
+        :<|> mudarPerfil
+        :<|> mudarSenha
+        :<|> apagarTudo
+        :<|> demo
+
+    resumo cab = do
+      u <- autenticar cab
+      d <- hoje
+      -- desde o início do mês de 5 meses atrás (ou 60 dias, o que for antes)
+      movs <- comBanco (\c -> movimentacoesPeriodo c (usId u) (min (addDays (-60) d) (addGregorianMonthsClip (-6) d)) d)
+      pure (montarResumo d movs)
+
+    contagem cab = autenticar cab >>= \u -> comBanco (`contarLotes` usId u)
+
+    mudarDados i cab dd = do
+      u <- autenticar cab
+      _ <- acharOu404 (usId u) i
+      d <- hoje
+      let produto = T.strip (ddProduto dd)
+      when (T.null produto) $ falhar err400 "Informe o nome do insumo."
+      when (ddRecebidoEm dd > d) $ falhar err400 "A data de recebimento não pode ser no futuro."
+      when (ddValidade dd < ddRecebidoEm dd) $ falhar err400 "A validade não pode ser antes da data de recebimento."
+      comBanco (\c -> atualizarDados c (usId u) i dd {ddProduto = produto})
+      acharOu404 (usId u) i
+
+    produtos cab = autenticar cab >>= \u -> comBanco (`produtosConhecidos` usId u)
+
+    mudarPerfil cab (AtualizarPerfil r) = do
+      u <- autenticar cab
+      let nome = T.take 60 (T.strip r)
+      when (T.null nome) $ falhar err400 "Informe o nome do restaurante."
+      comBanco (\c -> atualizarRestaurante c (usId u) nome)
+      pure u {usRestaurante = nome}
+
+    mudarSenha cab ts = do
+      u <- autenticar cab
+      atual <- comBanco (`senhaHashDe` usId u)
+      unless (maybe False (conferirSenha (tsSenhaAtual ts)) atual) $ falhar err400 "A senha atual não confere."
+      when (T.length (tsSenhaNova ts) < 6) $ falhar err400 "A senha nova precisa ter pelo menos 6 caracteres."
+      when (tsSenhaNova ts == tsSenhaAtual ts) $ falhar err400 "A senha nova precisa ser diferente da atual."
+      h <- liftIO (gerarHash (tsSenhaNova ts))
+      comBanco (\c -> atualizarSenhaHash c (usId u) h)
+      pure NoContent
+
+    apagarTudo cab = do
+      u <- autenticar cab
+      comBanco (`apagarDadosUsuario` usId u)
+      pure NoContent
+
+    demo cab de = do
+      u <- autenticar cab
+      n <- comBanco (`contarLotes` usId u)
+      when (n > 0 && not (deConfirmar de)) $
+        falhar err409 "Marque a confirmação para substituir os dados atuais."
+      comBanco (\c -> importarDemo c (usId u) (deLotes de) (deMovimentacoes de))
+      pure NoContent
 
     logout cab = do
       _ <- autenticar cab
@@ -157,6 +234,8 @@ server banco = publica :<|> protegida :<|> serveDirectoryFileServer "static"
       u <- autenticar cab
       d <- hoje
       ok <- either (falhar err400) pure (validarNovoLote d nl)
+      when (nlValidade ok < d) $
+        falhar err400 "Esse lote já está vencido. Não use insumo vencido (RDC 216/2004): devolva ao fornecedor."
       novoId <- comBanco (\c -> inserirLote c d (usId u) ok)
       acharOu404 (usId u) novoId
 
