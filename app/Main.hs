@@ -17,9 +17,13 @@ import App (novoEnv)
 import Banco (abrirBanco)
 import Handlers (app)
 import Network.Wai.Handler.Warp (run)
+import System.IO (BufferMode (LineBuffering), hSetBuffering, stdout)
 
 main :: IO ()
 main = do
+  -- Mostra cada linha na hora, mesmo quando a saída não é um terminal
+  -- (ex.: rodando pelo "npm run dev", que junta a saída da API e do site).
+  hSetBuffering stdout LineBuffering
   conn <- abrirBanco "perdazero.db"
   env <- novoEnv conn
   putStrLn "API do PerdaZero em http://localhost:8081 (o site fica em http://localhost:8080)"

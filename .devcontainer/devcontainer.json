@@ -4,8 +4,9 @@
   // A imagem é montada pelo Dockerfile ao lado (haskell:9.10 + Node 20).
   "build": { "dockerfile": "Dockerfile" },
 
-  // Na criação do Codespace: baixa e compila as dependências (demora uns 10-15 min na 1ª vez).
-  "postCreateCommand": "cabal update && cabal build && npm install",
+  // Na criação do Codespace: libera o Git na pasta (o terminal roda como root, mas a pasta é de
+  // outro usuário) e baixa/compila as dependências (demora uns 10-15 min na 1ª vez).
+  "postCreateCommand": "git config --global --add safe.directory ${containerWorkspaceFolder} && cabal update && cabal build && npm install",
 
   "forwardPorts": [8080, 8081],
   "portsAttributes": {
