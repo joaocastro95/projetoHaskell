@@ -36,6 +36,9 @@ cookie httpOnly, fora do JavaScript do navegador.
 
 O repositório tem um `.devcontainer/` com GHC 9.10, cabal e Node 20.
 
+> Se o Codespace abrir em "modo de recuperação" (um container vazio, sem GHC), aperte
+> **Ctrl+Shift+P → Codespaces: Rebuild Container**, ou apague o Codespace e crie outro.
+
 1. No GitHub: **Code → Codespaces → Create codespace on main**.
 2. Espere a preparação: ela já roda `cabal update`, `cabal build` e `npm install`
    (na primeira vez leva uns 10-15 minutos).
