@@ -13,25 +13,50 @@ extra-doc-files:    CHANGELOG.md
 common warnings
     ghc-options: -Wall
 
-executable haskellaula
+-- Biblioteca: todo o back-end (rotas, handlers, regras, banco).
+-- Fica separada do executável para os testes poderem usar os módulos.
+library
     import:           warnings
-    main-is:          Main.hs
-    other-modules:    Tipos, Banco, Regras, Auth
-    -- -threaded é obrigatório no Windows: sem ele, o Warp trava esperando conexões
-    -- e o navegador (que mantém conexões abertas) fica sem resposta.
-    ghc-options:      -threaded -rtsopts "-with-rtsopts=-N"
+    exposed-modules:  Api, App, Handlers, Tipos, Banco, Regras, Auth
     build-depends:    base,
                       servant,
                       servant-server,
-                      warp,
                       aeson,
                       text,
                       time,
                       sqlite-simple,
                       bytestring,
                       containers,
+                      mtl,
                       cryptohash-sha256,
                       entropy,
                       base16-bytestring
+    hs-source-dirs:   src
+    default-language: Haskell2010
+
+-- Executável: só abre o banco e sobe o servidor (app/Main.hs).
+executable haskellaula
+    import:           warnings
+    main-is:          Main.hs
+    -- -threaded é obrigatório no Windows: sem ele, o Warp trava esperando conexões
+    -- e o navegador (que mantém conexões abertas) fica sem resposta.
+    ghc-options:      -threaded -rtsopts "-with-rtsopts=-N"
+    build-depends:    base,
+                      haskellaula,
+                      warp
     hs-source-dirs:   app
+    default-language: Haskell2010
+
+-- Testes das regras de negócio (cabal test).
+test-suite testes
+    import:           warnings
+    type:             exitcode-stdio-1.0
+    main-is:          Spec.hs
+    other-modules:    RegrasSpec
+    build-depends:    base,
+                      haskellaula,
+                      hspec,
+                      text,
+                      time
+    hs-source-dirs:   test
     default-language: Haskell2010

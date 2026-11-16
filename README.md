@@ -2,7 +2,7 @@
 
 Controle de validade e desperdício para pequenos restaurantes.
 
-- **Back-end:** Haskell + Servant (pasta `app/`), com as regras de negócio, login e relatórios.
+- **Back-end:** Haskell + Servant (pastas `src/` e `app/`), com as regras de negócio, login e relatórios.
 - **Banco de dados:** SQLite local (arquivo `perdazero.db`), sem servidor nem conta externa.
 - **Front-end:** Next.js + TypeScript (pasta `frontend/`), as mesmas telas do PerdaZero, chamando a API Haskell com `fetch`.
 
@@ -107,7 +107,7 @@ curl -X POST localhost:8081/lote/1/movimentacao -H "Content-Type: application/js
 curl -H "Authorization: Bearer $TOKEN" "localhost:8081/relatorio?mes=2026-11"
 ```
 
-## Regras de negócio (app/Regras.hs)
+## Regras de negócio (src/Regras.hs)
 
 - Alertas: vencido, vence hoje, até 3 dias, até 7 dias.
 - Unidades contáveis (un, cx, pct, dz, g, mL) só aceitam números inteiros.
@@ -117,16 +117,40 @@ curl -H "Authorization: Bearer $TOKEN" "localhost:8081/relatorio?mes=2026-11"
 - Uso/descarte não pode passar do saldo; grava e baixa o saldo na mesma transação.
 - Aproveitamento = usado ÷ (usado + perdido).
 
-## Estrutura
+## Estrutura (MVC)
+
+O projeto segue o padrão **Model-View-Controller**, com as regras de negócio puras no centro:
+
+| Camada | Onde | O que faz |
+|---|---|---|
+| **Model** | `src/Tipos.hs`, `src/Regras.hs`, `src/Banco.hs` | Dados, regras de negócio (funções puras) e acesso ao SQLite |
+| **Controller** | `src/Api.hs`, `src/Handlers.hs`, `src/App.hs` | Contrato das rotas (tipos do Servant), o que cada rota faz e o ambiente dos handlers |
+| **View** | `frontend/` | Telas em Next.js + TypeScript |
+
+Os handlers usam o **ReaderT Pattern**: rodam na mônada `App = ReaderT Env Handler`, e o `Env`
+guarda o que eles precisam do mundo de fora (a conexão com o banco e a data de hoje).
+Assim nenhum handler recebe o banco por argumento; cada um pega o que precisa com `asks`.
 
 ```
-app/Main.hs       API (tipo Servant), login e handlers
-app/Auth.hs       Hash de senha (PBKDF2) e geração de token
-app/Tipos.hs      Records e conversão para JSON (aeson)
-app/Regras.hs     Regras de negócio puras (validações, alertas, relatório, resumo)
-app/Banco.hs      SQLite: usuarios, sessoes, lotes e movimentacoes
+src/Api.hs        Contrato da API: só os tipos das rotas (Servant)
+src/App.hs        Ambiente (Env) e mônada App = ReaderT Env Handler
+src/Handlers.hs   Implementação das rotas: login, validação, banco, resposta
+src/Regras.hs     Regras de negócio puras (validações, alertas, relatório, resumo)
+src/Banco.hs      SQLite: usuarios, sessoes, lotes e movimentacoes
+src/Auth.hs       Hash de senha (PBKDF2) e geração de token
+src/Tipos.hs      Records e conversão para JSON (aeson)
+app/Main.hs       Executável: abre o banco e sobe o servidor na porta 8081
+test/             Testes das regras de negócio (hspec)
 frontend/         Next.js + TypeScript (telas)
 frontend/src/lib/api.ts   Cliente da API Haskell (fetch + cookie de sessão)
+```
+
+## Testes
+
+As regras de negócio são funções puras, então os testes não precisam de banco nem de servidor:
+
+```bash
+cabal test --test-show-details=direct
 ```
 
 > No Windows o executável precisa do runtime `-threaded` (já configurado no `.cabal`);
