@@ -1,0 +1,23 @@
+{
+  // Ambiente do GitHub Codespaces: GHC 9.10 + cabal (imagem oficial do Haskell) e Node 20.
+  "name": "PerdaZero (Haskell + Next.js)",
+  "image": "haskell:9.10",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "20" }
+  },
+
+  // Na criação do Codespace: baixa e compila as dependências (demora uns 10-15 min na 1ª vez).
+  "postCreateCommand": "cabal update && cabal build && cd frontend && npm install",
+
+  "forwardPorts": [8080, 8081],
+  "portsAttributes": {
+    "8080": { "label": "Site (Next.js)", "onAutoForward": "openBrowser" },
+    "8081": { "label": "API Haskell", "onAutoForward": "silent" }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": ["justusadam.language-haskell"]
+    }
+  }
+}

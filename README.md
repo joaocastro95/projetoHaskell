@@ -32,6 +32,21 @@ O front encontra a API pela variável `API_URL` (padrão `http://localhost:8081`
 As chamadas saem do servidor do Next para a API, então não há CORS e o token de login fica num
 cookie httpOnly, fora do JavaScript do navegador.
 
+## Rodar no GitHub Codespaces
+
+O repositório tem um `.devcontainer/` com GHC 9.10, cabal e Node 20.
+
+1. No GitHub: **Code → Codespaces → Create codespace on main**.
+2. Espere a preparação: ela já roda `cabal update`, `cabal build` e `npm install`
+   (na primeira vez leva uns 10-15 minutos).
+3. Abra dois terminais (**+** no painel de terminal):
+   - `cabal run` (API na porta 8081)
+   - `cd frontend && npm run dev` (site na porta 8080)
+4. Na aba **Ports**, clique no globo da porta **8080** para abrir o site.
+
+O banco começa vazio no Codespace (o `perdazero.db` não vai para o Git): crie uma conta e use
+**Conta → Carregar dados de demonstração**.
+
 ## Banco de dados local
 
 O banco é o arquivo `perdazero.db`, criado sozinho na pasta do projeto na primeira execução da API.
