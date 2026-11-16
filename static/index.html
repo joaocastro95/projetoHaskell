@@ -21,11 +21,32 @@
       <a href="#estoque" data-aba="estoque">Estoque</a>
       <a href="#perdas" data-aba="perdas">Perdas</a>
     </nav>
-    <a href="#entrada" class="btn btn-limao so-desktop">+ Entrada</a>
+    <div class="usuario">
+      <span id="nome-restaurante" class="so-desktop"></span>
+      <a href="#entrada" class="btn btn-limao so-desktop">+ Entrada</a>
+      <button id="sair" class="btn btn-secundario">Sair</button>
+    </div>
   </header>
 
   <main id="conteudo">
     <div id="aviso" class="aviso" hidden></div>
+
+    <!-- LOGIN / CADASTRO -->
+    <section id="tela-login" class="tela login" hidden>
+      <div class="login-topo">
+        <p class="eyebrow">Controle de validade para restaurantes</p>
+        <h1 class="titulo-grande">Saiba o que vence <span>antes</span> de virar prejuízo.</h1>
+      </div>
+      <form id="form-login" class="cartao formulario">
+        <h2 class="titulo" id="l-titulo" style="font-size:22px">Acesse sua cozinha</h2>
+        <label id="l-restaurante" hidden>Nome do restaurante <input name="restaurante" class="campo" placeholder="Ex.: Cantina da Praia"></label>
+        <label>E-mail <input name="email" type="email" class="campo" required autocomplete="email"></label>
+        <label>Senha <input name="senha" type="password" class="campo" required minlength="6" autocomplete="current-password"></label>
+        <button id="l-enviar" class="btn btn-primario" type="submit">Entrar</button>
+        <button id="l-alternar" class="btn btn-secundario" type="button">Primeira vez? Criar conta grátis</button>
+        <p class="sub">Os dados ficam só neste computador (banco SQLite local).</p>
+      </form>
+    </section>
 
     <!-- PAINEL -->
     <section id="tela-painel" class="tela">

@@ -114,3 +114,33 @@ instance ToJSON Relatorio where toJSON = genericToJSON (opcoes 2)
 newtype Erro = Erro {erErro :: Text} deriving (Show, Generic)
 
 instance ToJSON Erro where toJSON = genericToJSON (opcoes 2)
+
+-- | Corpo do POST /cadastro e do POST /login
+data Credenciais = Credenciais
+  { crEmail :: Text,
+    crSenha :: Text,
+    crRestaurante :: Maybe Text -- só no cadastro
+  }
+  deriving (Show, Generic)
+
+instance FromJSON Credenciais where parseJSON = genericParseJSON (opcoes 2)
+
+-- | Resposta do login/cadastro: o token vai no cabeçalho "Authorization: Bearer <token>"
+data Sessao = Sessao
+  { ssToken :: Text,
+    ssEmail :: Text,
+    ssRestaurante :: Text
+  }
+  deriving (Show, Generic)
+
+instance ToJSON Sessao where toJSON = genericToJSON (opcoes 2)
+
+-- | Usuário logado (GET /eu)
+data Usuario = Usuario
+  { usId :: Int,
+    usEmail :: Text,
+    usRestaurante :: Text
+  }
+  deriving (Show, Generic)
+
+instance ToJSON Usuario where toJSON = genericToJSON (opcoes 2)

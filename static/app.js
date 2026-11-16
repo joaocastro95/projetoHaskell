@@ -42,20 +42,76 @@ function textoDias(d) {
   return `vence em ${d} dias`;
 }
 
+// ---------- Sessão (token guardado no navegador) ----------
+const sessao = {
+  get token() { try { return localStorage.getItem("pz_token"); } catch { return null; } },
+  get restaurante() { try { return localStorage.getItem("pz_restaurante") || ""; } catch { return ""; } },
+  salvar(s) { try { localStorage.setItem("pz_token", s.token); localStorage.setItem("pz_restaurante", s.restaurante); } catch { /* sem storage */ } },
+  limpar() { try { localStorage.removeItem("pz_token"); localStorage.removeItem("pz_restaurante"); } catch { /* sem storage */ } },
+};
+
 // ---------- Chamadas à API ----------
 async function api(metodo, url, corpo) {
-  const r = await fetch(url, {
-    method: metodo,
-    headers: corpo ? { "Content-Type": "application/json" } : {},
-    body: corpo ? JSON.stringify(corpo) : undefined,
-  });
+  const headers = {};
+  if (corpo) headers["Content-Type"] = "application/json";
+  if (sessao.token) headers["Authorization"] = `Bearer ${sessao.token}`;
+  const r = await fetch(url, { method: metodo, headers, body: corpo ? JSON.stringify(corpo) : undefined });
   if (r.status === 204) return null;
   const texto = await r.text();
   let json = null;
   try { json = texto ? JSON.parse(texto) : null; } catch { /* resposta não-JSON */ }
+  // Sessão inválida ou expirada: volta para a tela de login
+  if (r.status === 401 && url !== "/login" && url !== "/cadastro") {
+    sessao.limpar();
+    mostrarLogin(json?.erro);
+    throw new Error(json?.erro || "Faça login para continuar.");
+  }
   if (!r.ok) throw new Error(json?.erro || texto || `Erro ${r.status}`);
   return json;
 }
+
+// ---------- Login / cadastro ----------
+let modoCadastro = false;
+function mostrarLogin(msg) {
+  document.body.classList.add("deslogado");
+  document.querySelectorAll(".tela").forEach((t) => (t.hidden = t.id !== "tela-login"));
+  if (msg) avisar(msg, "erro");
+}
+function ajustarModoLogin() {
+  $("#l-restaurante").hidden = !modoCadastro;
+  $("#l-restaurante input").required = modoCadastro;
+  $("#l-titulo").textContent = modoCadastro ? "Criar conta" : "Acesse sua cozinha";
+  $("#l-enviar").textContent = modoCadastro ? "Criar conta" : "Entrar";
+  $("#l-alternar").textContent = modoCadastro ? "Já tenho conta: entrar" : "Primeira vez? Criar conta grátis";
+}
+$("#l-alternar").addEventListener("click", () => { modoCadastro = !modoCadastro; ajustarModoLogin(); });
+$("#form-login").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  const botao = $("#l-enviar");
+  botao.disabled = true;
+  try {
+    const s = await api("POST", modoCadastro ? "/cadastro" : "/login", {
+      email: f.email.value,
+      senha: f.senha.value,
+      restaurante: modoCadastro ? f.restaurante.value : null,
+    });
+    sessao.salvar(s);
+    f.reset();
+    $("#aviso").hidden = true;
+    if (location.hash !== "#painel") location.hash = "#painel";
+    else rotear();
+  } catch (err) {
+    avisar(err.message, "erro");
+  } finally {
+    botao.disabled = false;
+  }
+});
+$("#sair").addEventListener("click", async () => {
+  try { await api("POST", "/logout"); } catch { /* sessão já inválida */ }
+  sessao.limpar();
+  mostrarLogin();
+});
 
 function avisar(msg, tipo = "ok") {
   const el = $("#aviso");
@@ -264,11 +320,13 @@ async function abrirJanela(acao, id) {
   $("#janela").showModal();
 }
 
-$("#janela").addEventListener("close", async () => {
+// Tratamos o envio no "submit" (síncrono e confiável), em vez do evento "close" do <dialog>.
+$("#form-janela").addEventListener("submit", async (e) => {
+  e.preventDefault();
   const dlg = $("#janela");
   const form = $("#form-janela");
-  const escolha = dlg.returnValue;
-  dlg.returnValue = "";
+  const escolha = e.submitter?.value;
+  dlg.close();
   if (escolha !== "salvar" && escolha !== "excluir") return;
   const { modo: acao, lote: id } = form.dataset;
   try {
@@ -311,6 +369,9 @@ $("#e-busca").addEventListener("input", desenharEstoque);
 const TELAS = { painel: carregarPainel, estoque: carregarEstoque, entrada: async () => prepararEntrada(), perdas: carregarPerdas };
 
 function rotear() {
+  if (!sessao.token) return mostrarLogin();
+  document.body.classList.remove("deslogado");
+  $("#nome-restaurante").textContent = sessao.restaurante;
   const aba = location.hash.slice(1) || "painel";
   const nome = TELAS[aba] ? aba : "painel";
   document.querySelectorAll(".tela").forEach((t) => (t.hidden = t.id !== `tela-${nome}`));
@@ -318,4 +379,5 @@ function rotear() {
   TELAS[nome]().catch((err) => avisar(`Não foi possível falar com a API: ${err.message}`, "erro"));
 }
 window.addEventListener("hashchange", rotear);
+ajustarModoLogin();
 rotear();

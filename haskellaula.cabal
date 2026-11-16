@@ -16,7 +16,7 @@ common warnings
 executable haskellaula
     import:           warnings
     main-is:          Main.hs
-    other-modules:    Tipos, Banco, Regras
+    other-modules:    Tipos, Banco, Regras, Auth
     -- -threaded é obrigatório no Windows: sem ele, o Warp trava esperando conexões
     -- e o navegador (que mantém conexões abertas) fica sem resposta.
     ghc-options:      -threaded -rtsopts "-with-rtsopts=-N"
@@ -29,6 +29,9 @@ executable haskellaula
                       time,
                       sqlite-simple,
                       bytestring,
-                      containers
+                      containers,
+                      cryptohash-sha256,
+                      entropy,
+                      base16-bytestring
     hs-source-dirs:   app
     default-language: Haskell2010
